@@ -1,12 +1,13 @@
 package blablapoll
 
 import (
-	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
+	"github.com/CedricFinance/blablapoll/application"
 	"github.com/CedricFinance/blablapoll/config"
 	"github.com/CedricFinance/blablapoll/database"
+	"github.com/CedricFinance/blablapoll/domain/entities"
+	"github.com/CedricFinance/blablapoll/infrastructure/repository"
 	"github.com/mattn/go-shellwords"
 	"github.com/nlopes/slack"
 	"github.com/nlopes/slack/slackevents"
@@ -17,7 +18,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func ParseSlashCommand(r *http.Request) (slack.SlashCommand, error) {
@@ -65,6 +65,8 @@ func init() {
 }
 
 func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
+	repo := repository.New(db)
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		fmt.Fprint(w, err)
@@ -87,174 +89,91 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 
 	args, err := shellwords.Parse(Sanitize(slashCommand))
 	if err != nil {
-		WriteError(w, err)
+		application.WriteError(w, err)
 		return
 	}
 
-	poll := NewPoll(args[0], args[1:])
+	poll := entities.NewPoll(args[0], args[1:])
 
-	err = SavePoll(r.Context(), db, poll)
+	err = repo.SavePoll(r.Context(), db, poll)
 	if err != nil {
-		WriteError(w, err)
+		application.WriteError(w, err)
 		return
 	}
 
 	//msg := FormatQuestion(question, propositions)
 	msg := FormatQuestionAlt(poll, nil)
+	msg.Channel = strings.TrimSpace(slashCommand.ChannelID)
 
-	WriteJSON(w, msg)
-}
-
-func SavePoll(context context.Context, db *sql.DB, poll Poll) error {
-	propositions, err := json.Marshal(poll.Propositions)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(
-		context,
-		"INSERT INTO polls(id,title,propositions,created_at) VALUES(?,?,?,?)",
-		poll.Id,
-		poll.Title,
-		propositions,
-		time.Now().UTC(),
-	)
-
-	return err
-}
-
-func SaveVote(context context.Context, db *sql.DB, vote Vote) error {
-	_, err := db.ExecContext(
-		context,
-		"INSERT INTO votes(id,poll_id,user_id,selected_proposition,created_at) VALUES(?,?,?,?,?)",
-		vote.Id,
-		vote.PollId,
-		vote.UserId,
-		vote.SelectedProposition,
-		vote.CreatedAt,
-	)
-
-	return err
-}
-
-type dbPoll struct {
-	Id           string
-	Title        string
-	Propositions []byte
-	CreatedAt    time.Time
-}
-
-type PollNotFound struct {
-	ID string
-}
-
-func (e PollNotFound) Error() string {
-	return fmt.Sprintf("no poll with id %q", e.ID)
-}
-
-func GetAllVotes(context context.Context, db *sql.DB, pollId string) ([]Vote, error) {
-	rows, err := db.QueryContext(context, "SELECT id,user_id,selected_proposition,created_at FROM votes WHERE poll_id=?", pollId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []Vote
-
-	for rows.Next() {
-		var voteId string
-		var userId string
-		var selectedProposition int
-		var createdAt time.Time
-
-		err = rows.Scan(&voteId, &userId, &selectedProposition, &createdAt)
-
-		if err != nil {
-			return results, err
-		}
-
-		results = append(results, Vote{Id: voteId, UserId: userId, SelectedProposition: selectedProposition, CreatedAt: createdAt})
-	}
-
-	return results, nil
-}
-
-func FindPollByID(context context.Context, db *sql.DB, id string) (Poll, error) {
-	rows, err := db.QueryContext(context, "SELECT id,title,propositions,created_at FROM polls WHERE id=?", id)
-	if err != nil {
-		return Poll{}, err
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return Poll{}, PollNotFound{ID: id}
-	}
-
-	var p dbPoll
-	err = rows.Scan(&p.Id, &p.Title, &p.Propositions, &p.CreatedAt)
-	if err != nil {
-		return Poll{}, err
-	}
-
-	var props []string
-	err = json.Unmarshal(p.Propositions, &props)
-	if err != nil {
-		return Poll{}, err
-	}
-
-	return Poll{
-		Id:           p.Id,
-		Title:        p.Title,
-		Propositions: props,
-		CreatedAt:    p.CreatedAt,
-	}, nil
+	application.WriteJSON(w, msg)
 }
 
 func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
+	repo := repository.New(db)
+
 	r.ParseForm()
 
 	payload := r.Form.Get("payload")
 	messageAction, err := slackevents.ParseActionEvent(payload, slackevents.OptionNoVerifyToken())
 	if err != nil {
 		panic(err)
-		WriteError(w, err)
-		return
-	}
-
-	poll, err := FindPollByID(r.Context(), db, messageAction.CallbackID)
-	if err != nil {
-		WriteError(w, err)
+		application.WriteError(w, err)
 		return
 	}
 
 	selectedProposition, err := strconv.Atoi(messageAction.Actions[0].Value)
 	if err != nil {
-		WriteError(w, err)
+		application.WriteError(w, err)
 		return
 	}
 
+	pollId := messageAction.CallbackID
 	userId := messageAction.User.ID
-	err = SaveVote(r.Context(), db, NewVote(userId, poll.Id, selectedProposition))
+
+	votes, err := repo.GetAllVotes(r.Context(), pollId)
 	if err != nil {
-		WriteError(w, err)
+		application.WriteError(w, err)
 		return
 	}
 
-	votes, err := GetAllVotes(r.Context(), db, poll.Id)
+	poll, err := repo.FindPollByID(r.Context(), db, pollId)
 	if err != nil {
-		WriteError(w, err)
+		application.WriteError(w, err)
 		return
 	}
 
+	newVote := entities.NewVote(userId, pollId, selectedProposition)
+	if len(UserVotes(votes, userId)) < poll.MaxVotes {
+		err = repo.SaveVote(r.Context(), newVote)
+		if err != nil {
+			application.WriteError(w, err)
+			return
+		}
+	} else {
+		application.WriteMessage(w, fmt.Sprintf("Sorry, you already have voted %d times", poll.MaxVotes))
+		return
+	}
+
+	votes = append(votes, newVote)
 	msg := FormatQuestionAlt(poll, votes)
 	msg.ReplaceOriginal = true
-	WriteJSON(w, msg)
+	application.WriteJSON(w, msg)
 }
 
-func FormatQuestionAlt(poll Poll, votes []Vote) slack.Msg {
+func UserVotes(votes []entities.Vote, userId string) []entities.Vote {
+	var userVotes []entities.Vote
+	for _, vote := range votes {
+		if vote.UserId == userId {
+			userVotes = append(userVotes, vote)
+		}
+	}
+	return userVotes
+}
+
+func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 	votes = votes[:]
 	sort.Sort(ByCreationDate(votes))
-	votesByProposition := make([][]Vote, len(poll.Propositions))
+	votesByProposition := make([][]entities.Vote, len(poll.Propositions))
 	for _, vote := range votes {
 		votesByProposition[vote.SelectedProposition] = append(votesByProposition[vote.SelectedProposition], vote)
 	}
@@ -287,7 +206,7 @@ func FormatQuestionAlt(poll Poll, votes []Vote) slack.Msg {
 
 		actions := make([]slack.AttachmentAction, upperBound-lowerBound)
 		for j := 0; j < itemsCount; j++ {
-			actions[j] = slack.AttachmentAction{Name: "vote", Type: "button", Value: fmt.Sprintf("%d", i), Text: PropositionsEmojis[j+lowerBound]}
+			actions[j] = slack.AttachmentAction{Name: "vote", Type: "button", Value: fmt.Sprintf("%d", j+lowerBound), Text: PropositionsEmojis[j+lowerBound]}
 		}
 
 		msg.Attachments = append(msg.Attachments, slack.Attachment{
@@ -297,10 +216,12 @@ func FormatQuestionAlt(poll Poll, votes []Vote) slack.Msg {
 
 	}
 
+	msg.Type = "in_channel"
+
 	return msg
 }
 
-type ByCreationDate []Vote
+type ByCreationDate []entities.Vote
 
 func (d ByCreationDate) Len() int {
 	return len(d)
@@ -349,24 +270,4 @@ func FormatQuestion(question string, propositions []string) slack.Message {
 
 func Sanitize(slashCommand slack.SlashCommand) string {
 	return strings.Replace(strings.Replace(slashCommand.Text, "“", "\"", -1), "”", "\"", -1)
-}
-
-func WriteError(w http.ResponseWriter, err error) {
-	msg := slack.Msg{
-		ResponseType: "ephemeral",
-		Text:         fmt.Sprintf("Sorry, an error occured: %s", err),
-	}
-
-	WriteJSON(w, msg)
-}
-
-func WriteJSON(w http.ResponseWriter, d interface{}) {
-	res, err := json.Marshal(d)
-	if err != nil {
-		fmt.Fprint(w, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
 }

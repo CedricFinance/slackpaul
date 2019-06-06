@@ -1,4 +1,4 @@
-package blablapoll
+package entities
 
 import (
 	"github.com/google/uuid"
@@ -9,6 +9,7 @@ type Poll struct {
 	Id           string
 	Title        string
 	Propositions []string
+	MaxVotes     int
 	CreatedAt    time.Time
 }
 
@@ -20,11 +21,19 @@ type Vote struct {
 	CreatedAt           time.Time
 }
 
+type Voter struct {
+	UserId    string
+	PollId    string
+	Version   int
+	CreatedAt time.Time
+}
+
 func NewPoll(title string, propositions []string) Poll {
 	return Poll{
 		Id:           uuid.New().String(),
 		Title:        title,
 		Propositions: propositions,
+		MaxVotes:     1,
 	}
 }
 
