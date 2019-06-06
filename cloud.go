@@ -85,9 +85,7 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = slashCommand.Text
-
-	args, err := shellwords.Parse(Sanitize(slashCommand))
+	args, err := shellwords.Parse(Sanitize(slashCommand.Text))
 	if err != nil {
 		application.WriteError(w, err)
 		return
@@ -103,7 +101,6 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 
 	//msg := FormatQuestion(question, propositions)
 	msg := FormatQuestionAlt(poll, nil)
-	msg.Channel = strings.TrimSpace(slashCommand.ChannelID)
 
 	application.WriteJSON(w, msg)
 }
@@ -216,7 +213,7 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 
 	}
 
-	msg.Type = "in_channel"
+	msg.ResponseType = "in_channel"
 
 	return msg
 }
@@ -268,6 +265,6 @@ func FormatQuestion(question string, propositions []string) slack.Message {
 	return msg
 }
 
-func Sanitize(slashCommand slack.SlashCommand) string {
-	return strings.Replace(strings.Replace(slashCommand.Text, "“", "\"", -1), "”", "\"", -1)
+func Sanitize(str string) string {
+	return strings.Replace(strings.Replace(str, "“", "\"", -1), "”", "\"", -1)
 }
