@@ -266,7 +266,12 @@ func FormatQuestionAlt(poll Poll, votes []Vote) slack.Msg {
 
 	propositionsFields := make([]slack.AttachmentField, len(poll.Propositions))
 	for i, proposition := range poll.Propositions {
-		propositionsFields[i] = slack.AttachmentField{Value: fmt.Sprintf("%s %s    `%d`", PropositionsEmojis[i], proposition, len(votesByProposition[i]))}
+		voters := make([]string, len(votesByProposition[i]))
+		for i, vote := range votesByProposition[i] {
+			voters[i] = fmt.Sprintf("<@%s>", vote.UserId)
+		}
+		propositionsFields[i] = slack.AttachmentField{
+			Value: fmt.Sprintf("%s %s    `%d`\n%s", PropositionsEmojis[i], proposition, len(votesByProposition[i]), strings.Join(voters, " "))}
 	}
 
 	msg.Attachments = append(msg.Attachments, slack.Attachment{
