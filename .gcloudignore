@@ -14,3 +14,8 @@
 .gitignore
 
 node_modules
+.idea
+Makefile
+env-dev.yaml
+env.yaml.example
+sql/
