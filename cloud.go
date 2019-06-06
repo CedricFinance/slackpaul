@@ -157,6 +157,7 @@ func GetAllVotes(context context.Context, db *sql.DB, pollId string) ([]Vote, er
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var results []Vote
 
@@ -183,6 +184,7 @@ func FindPollByID(context context.Context, db *sql.DB, id string) (Poll, error) 
 	if err != nil {
 		return Poll{}, err
 	}
+	defer rows.Close()
 
 	if !rows.Next() {
 		return Poll{}, PollNotFound{ID: id}
