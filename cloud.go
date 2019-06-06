@@ -91,7 +91,11 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	poll := entities.NewPoll(args[0], args[1:])
+	poll, err := ConfigurePoll(args)
+	if err != nil {
+		application.WriteMessage(w, fmt.Sprintf("Sorry, %s", err.Error()))
+		return
+	}
 
 	err = repo.SavePoll(r.Context(), db, poll)
 	if err != nil {
@@ -103,6 +107,23 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 	msg := FormatQuestionAlt(poll, nil)
 
 	application.WriteJSON(w, msg)
+}
+
+func ConfigurePoll(args []string) (entities.Poll, error) {
+	maxVotes := 1
+	if args[0] == "limit" && len(args) >= 5 {
+		var err error
+		maxVotes, err = strconv.Atoi(args[1])
+		if err != nil {
+			return entities.Poll{}, fmt.Errorf("%q is not a valid value for the max number of vote per participant", args[1])
+		}
+		args = args[2:]
+	}
+
+	poll := entities.NewPoll(args[0], args[1:])
+	poll.MaxVotes = maxVotes
+
+	return poll, nil
 }
 
 func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
@@ -176,6 +197,10 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 	}
 
 	msg := slack.Msg{}
+
+	if poll.MaxVotes > 1 {
+		msg.Text = fmt.Sprintf("This poll allows you to vote up to %d times.", poll.MaxVotes)
+	}
 
 	buttonsAttachmentsCount := int(math.Ceil(float64(len(poll.Propositions)) / 5))
 
