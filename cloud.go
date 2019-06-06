@@ -9,10 +9,13 @@ import (
 	"github.com/CedricFinance/blablapoll/database"
 	"github.com/mattn/go-shellwords"
 	"github.com/nlopes/slack"
+	"github.com/nlopes/slack/slackevents"
 	"io"
 	"io/ioutil"
 	"math"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -51,7 +54,6 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, err)
 		return
 	}
-	_ = cfg
 
 	var slashCommand slack.SlashCommand
 	if r.Host == "localhost:8080" {
@@ -69,7 +71,7 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 
 	args, err := shellwords.Parse(Sanitize(slashCommand))
 	if err != nil {
-		writeError(w, err)
+		WriteError(w, err)
 		return
 	}
 
@@ -78,21 +80,18 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 		cfg.GetDBUsername(),
 		cfg.GetDBPassword(),
 		cfg.GetDBName(),
-		cfg.GetDBInstance())
+		cfg.GetDBHost())
 
-	SavePoll(r.Context(), db, poll)
-
-	//msg := FormatQuestion(question, propositions)
-	msg := FormatQuestionAlt(poll)
-
-	res, err := json.Marshal(msg)
+	err = SavePoll(r.Context(), db, poll)
 	if err != nil {
-		fmt.Fprint(w, err)
+		WriteError(w, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
+	//msg := FormatQuestion(question, propositions)
+	msg := FormatQuestionAlt(poll, nil)
+
+	WriteJSON(w, msg)
 }
 
 func SavePoll(context context.Context, db *sql.DB, poll Poll) error {
@@ -113,17 +112,152 @@ func SavePoll(context context.Context, db *sql.DB, poll Poll) error {
 	return err
 }
 
-func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
-	body, _ := ioutil.ReadAll(r.Body)
+func SaveVote(context context.Context, db *sql.DB, vote Vote) error {
+	_, err := db.ExecContext(
+		context,
+		"INSERT INTO votes(id,poll_id,user_id,selected_proposition,created_at) VALUES(?,?,?,?,?)",
+		vote.Id,
+		vote.PollId,
+		vote.UserId,
+		vote.SelectedProposition,
+		vote.CreatedAt,
+	)
 
-	fmt.Println(string(body))
-
-	defer r.Body.Close()
-
-	fmt.Fprint(w, string(body))
+	return err
 }
 
-func FormatQuestionAlt(poll Poll) slack.Msg {
+type dbPoll struct {
+	Id           string
+	Title        string
+	Propositions []byte
+	CreatedAt    time.Time
+}
+
+type PollNotFound struct {
+	ID string
+}
+
+func (e PollNotFound) Error() string {
+	return fmt.Sprintf("no poll with id %q", e.ID)
+}
+
+func GetAllVotes(context context.Context, db *sql.DB, pollId string) ([]Vote, error) {
+	rows, err := db.QueryContext(context, "SELECT id,user_id,selected_proposition,created_at FROM votes WHERE poll_id=?", pollId)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []Vote
+
+	for rows.Next() {
+		var voteId string
+		var userId string
+		var selectedProposition int
+		var createdAt time.Time
+
+		err = rows.Scan(&voteId, &userId, &selectedProposition, &createdAt)
+
+		if err != nil {
+			return results, err
+		}
+
+		results = append(results, Vote{Id: voteId, UserId: userId, SelectedProposition: selectedProposition, CreatedAt: createdAt})
+	}
+
+	return results, nil
+}
+
+func FindPollByID(context context.Context, db *sql.DB, id string) (Poll, error) {
+	rows, err := db.QueryContext(context, "SELECT id,title,propositions,created_at FROM polls WHERE id=?", id)
+	if err != nil {
+		return Poll{}, err
+	}
+
+	if !rows.Next() {
+		return Poll{}, PollNotFound{ID: id}
+	}
+
+	var p dbPoll
+	err = rows.Scan(&p.Id, &p.Title, &p.Propositions, &p.CreatedAt)
+	if err != nil {
+		return Poll{}, err
+	}
+
+	var props []string
+	err = json.Unmarshal(p.Propositions, &props)
+	if err != nil {
+		return Poll{}, err
+	}
+
+	return Poll{
+		Id:           p.Id,
+		Title:        p.Title,
+		Propositions: props,
+		CreatedAt:    p.CreatedAt,
+	}, nil
+}
+
+func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		fmt.Fprint(w, err)
+		return
+	}
+
+	r.ParseForm()
+
+	payload := r.Form.Get("payload")
+	messageAction, err := slackevents.ParseActionEvent(payload, slackevents.OptionNoVerifyToken())
+	if err != nil {
+		panic(err)
+		WriteError(w, err)
+		return
+	}
+
+	db := database.Connect(
+		cfg.GetDBUsername(),
+		cfg.GetDBPassword(),
+		cfg.GetDBName(),
+		cfg.GetDBHost())
+
+	poll, err := FindPollByID(r.Context(), db, messageAction.CallbackID)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+
+	selectedProposition, err := strconv.Atoi(messageAction.Actions[0].Value)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+
+	userId := messageAction.User.ID
+	err = SaveVote(r.Context(), db, NewVote(userId, poll.Id, selectedProposition))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+
+	votes, err := GetAllVotes(r.Context(), db, poll.Id)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+
+	msg := FormatQuestionAlt(poll, votes)
+	msg.ReplaceOriginal = true
+	WriteJSON(w, msg)
+}
+
+func FormatQuestionAlt(poll Poll, votes []Vote) slack.Msg {
+	votes = votes[:]
+	sort.Sort(ByCreationDate(votes))
+	votesByProposition := make([][]Vote, len(poll.Propositions))
+	for _, vote := range votes {
+		votesByProposition[vote.SelectedProposition] = append(votesByProposition[vote.SelectedProposition], vote)
+	}
+
 	msg := slack.Msg{}
 
 	buttonsAttachmentsCount := int(math.Ceil(float64(len(poll.Propositions)) / 5))
@@ -132,7 +266,7 @@ func FormatQuestionAlt(poll Poll) slack.Msg {
 
 	propositionsFields := make([]slack.AttachmentField, len(poll.Propositions))
 	for i, proposition := range poll.Propositions {
-		propositionsFields[i] = slack.AttachmentField{Value: fmt.Sprintf("%s %s", PropositionsEmojis[i], proposition)}
+		propositionsFields[i] = slack.AttachmentField{Value: fmt.Sprintf("%s %s    `%d`", PropositionsEmojis[i], proposition, len(votesByProposition[i]))}
 	}
 
 	msg.Attachments = append(msg.Attachments, slack.Attachment{
@@ -158,6 +292,20 @@ func FormatQuestionAlt(poll Poll) slack.Msg {
 	}
 
 	return msg
+}
+
+type ByCreationDate []Vote
+
+func (d ByCreationDate) Len() int {
+	return len(d)
+}
+
+func (d ByCreationDate) Less(i, j int) bool {
+	return d[i].CreatedAt.Before(d[j].CreatedAt)
+}
+
+func (d ByCreationDate) Swap(i, j int) {
+	d[i], d[j] = d[j], d[i]
 }
 
 func FormatQuestion(question string, propositions []string) slack.Message {
@@ -197,12 +345,17 @@ func Sanitize(slashCommand slack.SlashCommand) string {
 	return strings.Replace(strings.Replace(slashCommand.Text, "“", "\"", -1), "”", "\"", -1)
 }
 
-func writeError(w http.ResponseWriter, err error) {
+func WriteError(w http.ResponseWriter, err error) {
 	msg := slack.Msg{
 		ResponseType: "ephemeral",
 		Text:         fmt.Sprintf("Sorry, an error occured: %s", err),
 	}
-	res, err := json.Marshal(msg)
+
+	WriteJSON(w, msg)
+}
+
+func WriteJSON(w http.ResponseWriter, d interface{}) {
+	res, err := json.Marshal(d)
 	if err != nil {
 		fmt.Fprint(w, err)
 		return

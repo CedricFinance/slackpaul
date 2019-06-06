@@ -28,7 +28,7 @@ func (c *Config) GetDBName() string {
 	return c.viper.GetString("db.name")
 }
 
-func (c *Config) GetDBInstance() string {
+func (c *Config) GetDBHost() string {
 	return c.viper.GetString("db.host")
 }
 
@@ -47,7 +47,7 @@ func LoadConfig() (*Config, error) {
 	_ = v.BindEnv("db.username", "BBP_DB_USERNAME")
 	_ = v.BindEnv("db.password", "BBP_DB_PASSWORD")
 	_ = v.BindEnv("db.name", "BBP_DB_NAME")
-	_ = v.BindEnv("db.host", "BBP_HOST")
+	_ = v.BindEnv("db.host", "BBP_DB_HOST")
 
 	return &config, nil
 }

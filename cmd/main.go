@@ -1,12 +1,13 @@
 package main
 
 import (
-    "github.com/CedricFinance/blablapoll"
-    "log"
-    "net/http"
+	"github.com/CedricFinance/blablapoll"
+	"log"
+	"net/http"
 )
 
 func main() {
-    http.HandleFunc("/", blablapoll.OnSlashCommandTrigger)
-    log.Fatal(http.ListenAndServe(":8080", nil))
+	http.HandleFunc("/commands", blablapoll.OnSlashCommandTrigger)
+	http.HandleFunc("/actions", blablapoll.OnActionTrigger)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

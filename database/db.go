@@ -7,8 +7,8 @@ import (
 	"log"
 )
 
-func Connect(user string, password string, database string, instance string) *sql.DB {
-	dsn := fmt.Sprintf("%s:%s@%s/%s", user, password, instance, database)
+func Connect(user string, password string, database string, host string) *sql.DB {
+	dsn := fmt.Sprintf("%s:%s@%s/%s?parseTime=true", user, password, host, database)
 	db, err := sql.Open("mysql", dsn)
 
 	if err != nil {
@@ -16,7 +16,7 @@ func Connect(user string, password string, database string, instance string) *sq
 	}
 
 	db.SetMaxIdleConns(1)
-	db.SetMaxOpenConns(1)
+	db.SetMaxOpenConns(2)
 
 	return db
 }
