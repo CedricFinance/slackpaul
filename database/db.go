@@ -16,7 +16,7 @@ func Connect(user string, password string, database string, host string) *sql.DB
 	}
 
 	db.SetMaxIdleConns(1)
-	db.SetMaxOpenConns(2)
+	db.SetMaxOpenConns(1)
 
 	return db
 }

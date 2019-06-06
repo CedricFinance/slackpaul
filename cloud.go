@@ -48,6 +48,22 @@ var PropositionsEmojis = []string{
 	":one:", ":two:", ":three:", ":four:", ":five:", ":six:", ":seven:", ":eight:", ":nine:",
 }
 
+var db *sql.DB
+
+func init() {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		fmt.Print(err)
+		return
+	}
+
+	db = database.Connect(
+		cfg.GetDBUsername(),
+		cfg.GetDBPassword(),
+		cfg.GetDBName(),
+		cfg.GetDBHost())
+}
+
 func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -76,11 +92,6 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 	}
 
 	poll := NewPoll(args[0], args[1:])
-	db := database.Connect(
-		cfg.GetDBUsername(),
-		cfg.GetDBPassword(),
-		cfg.GetDBName(),
-		cfg.GetDBHost())
 
 	err = SavePoll(r.Context(), db, poll)
 	if err != nil {
@@ -198,12 +209,6 @@ func FindPollByID(context context.Context, db *sql.DB, id string) (Poll, error) 
 }
 
 func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		fmt.Fprint(w, err)
-		return
-	}
-
 	r.ParseForm()
 
 	payload := r.Form.Get("payload")
@@ -213,12 +218,6 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-
-	db := database.Connect(
-		cfg.GetDBUsername(),
-		cfg.GetDBPassword(),
-		cfg.GetDBName(),
-		cfg.GetDBHost())
 
 	poll, err := FindPollByID(r.Context(), db, messageAction.CallbackID)
 	if err != nil {
