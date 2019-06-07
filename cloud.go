@@ -188,6 +188,25 @@ func UserVotes(votes []entities.Vote, userId string) []entities.Vote {
 	return userVotes
 }
 
+type SymbolsSource interface {
+	ForIndex(i int) string
+}
+
+type ArraySymbolsSource []string
+
+func (a ArraySymbolsSource) ForIndex(i int) string {
+	if i < len(a) {
+		return a[i]
+	}
+	return fmt.Sprintf("%d", i+1)
+}
+
+type NumbersSymbolsSource struct{}
+
+func (NumbersSymbolsSource) ForIndex(i int) string {
+	return fmt.Sprintf("%d", i+1)
+}
+
 func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 	votes = votes[:]
 	sort.Sort(ByCreationDate(votes))
@@ -195,6 +214,8 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 	for _, vote := range votes {
 		votesByProposition[vote.SelectedProposition] = append(votesByProposition[vote.SelectedProposition], vote)
 	}
+
+	symbols := GetSymbolsSource(poll)
 
 	msg := slack.Msg{}
 
@@ -213,7 +234,7 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 			voters[i] = fmt.Sprintf("<@%s>", vote.UserId)
 		}
 		propositionsFields[i] = slack.AttachmentField{
-			Value: fmt.Sprintf("%s %s    `%d`\n%s", PropositionsEmojis[i], proposition, len(votesByProposition[i]), strings.Join(voters, " "))}
+			Value: fmt.Sprintf("*%s* %s    `%d`\n%s", symbols.ForIndex(i), proposition, len(votesByProposition[i]), strings.Join(voters, " "))}
 	}
 
 	msg.Attachments = append(msg.Attachments, slack.Attachment{
@@ -228,7 +249,7 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 
 		actions := make([]slack.AttachmentAction, upperBound-lowerBound)
 		for j := 0; j < itemsCount; j++ {
-			actions[j] = slack.AttachmentAction{Name: "vote", Type: "button", Value: fmt.Sprintf("%d", j+lowerBound), Text: PropositionsEmojis[j+lowerBound]}
+			actions[j] = slack.AttachmentAction{Name: "vote", Type: "button", Value: fmt.Sprintf("%d", j+lowerBound), Text: symbols.ForIndex(j + lowerBound)}
 		}
 
 		msg.Attachments = append(msg.Attachments, slack.Attachment{
@@ -241,6 +262,14 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 	msg.ResponseType = "in_channel"
 
 	return msg
+}
+
+func GetSymbolsSource(poll entities.Poll) SymbolsSource {
+	if len(poll.Propositions) <= 9 {
+		return ArraySymbolsSource(PropositionsEmojis)
+	}
+
+	return NumbersSymbolsSource{}
 }
 
 type ByCreationDate []entities.Vote
