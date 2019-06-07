@@ -18,16 +18,17 @@ func New(db *sql.DB) services.Repository {
 }
 
 type dbPoll struct {
-	Id           string
-	Title        string
-	Propositions []byte
-	MaxVotes     int
-	Anonymous    bool
-	CreatedAt    time.Time
+	Id                     string
+	Title                  string
+	Propositions           []byte
+	MaxVotes               int
+	MaxVotesPerProposition int
+	Anonymous              bool
+	CreatedAt              time.Time
 }
 
 func (r *repository) FindPollByID(context context.Context, db *sql.DB, id string) (entities.Poll, error) {
-	rows, err := db.QueryContext(context, "SELECT id,title,propositions,max_votes,anonymous,created_at FROM polls WHERE id=?", id)
+	rows, err := db.QueryContext(context, "SELECT id,title,propositions,max_votes,max_by_proposition,anonymous,created_at FROM polls WHERE id=?", id)
 	if err != nil {
 		return entities.Poll{}, err
 	}
@@ -38,7 +39,7 @@ func (r *repository) FindPollByID(context context.Context, db *sql.DB, id string
 	}
 
 	var p dbPoll
-	err = rows.Scan(&p.Id, &p.Title, &p.Propositions, &p.MaxVotes, &p.Anonymous, &p.CreatedAt)
+	err = rows.Scan(&p.Id, &p.Title, &p.Propositions, &p.MaxVotes, &p.MaxVotesPerProposition, &p.Anonymous, &p.CreatedAt)
 	if err != nil {
 		return entities.Poll{}, err
 	}
@@ -50,12 +51,13 @@ func (r *repository) FindPollByID(context context.Context, db *sql.DB, id string
 	}
 
 	return entities.Poll{
-		Id:           p.Id,
-		Title:        p.Title,
-		Propositions: props,
-		MaxVotes:     p.MaxVotes,
-		Anonymous:    p.Anonymous,
-		CreatedAt:    p.CreatedAt,
+		Id:                     p.Id,
+		Title:                  p.Title,
+		Propositions:           props,
+		MaxVotes:               p.MaxVotes,
+		MaxVotesPerProposition: p.MaxVotesPerProposition,
+		Anonymous:              p.Anonymous,
+		CreatedAt:              p.CreatedAt,
 	}, nil
 }
 
@@ -67,11 +69,12 @@ func (r *repository) SavePoll(context context.Context, db *sql.DB, poll entities
 
 	_, err = db.ExecContext(
 		context,
-		"INSERT INTO polls(id,title,propositions,max_votes,anonymous,created_at) VALUES(?,?,?,?,?,?)",
+		"INSERT INTO polls(id,title,propositions,max_votes,max_by_proposition,anonymous,created_at) VALUES(?,?,?,?,?,?,?)",
 		poll.Id,
 		poll.Title,
 		propositions,
 		poll.MaxVotes,
+		poll.MaxVotesPerProposition,
 		poll.Anonymous,
 		time.Now().UTC(),
 	)

@@ -115,6 +115,7 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 
 func ConfigurePoll(args []string) (entities.Poll, error) {
 	maxVotes := 1
+	maxVotesPerProposition := 0
 	anonymous := false
 
 	optionFound := true
@@ -126,6 +127,16 @@ func ConfigurePoll(args []string) (entities.Poll, error) {
 			maxVotes, err = strconv.Atoi(args[1])
 			if err != nil {
 				return entities.Poll{}, fmt.Errorf("%q is not a valid value for the max number of vote per participant", args[1])
+			}
+			args = args[2:]
+			optionFound = true
+		}
+
+		if args[0] == "max" && len(args) >= 5 {
+			var err error
+			maxVotesPerProposition, err = strconv.Atoi(args[1])
+			if err != nil {
+				return entities.Poll{}, fmt.Errorf("%q is not a valid value for the max number of vote per proposition", args[1])
 			}
 			args = args[2:]
 			optionFound = true
@@ -143,6 +154,7 @@ func ConfigurePoll(args []string) (entities.Poll, error) {
 	poll := entities.NewPoll(args[0], args[1:])
 	poll.MaxVotes = maxVotes
 	poll.Anonymous = anonymous
+	poll.MaxVotesPerProposition = maxVotesPerProposition
 
 	return poll, nil
 }
@@ -188,6 +200,12 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 
 	newVote := entities.NewVote(userId, pollId, selectedProposition)
 	if len(UserVotes(votes, userId)) < poll.MaxVotes {
+
+		if poll.MaxVotesPerProposition != 0 && len(PropositionVotes(votes, selectedProposition)) >= poll.MaxVotesPerProposition {
+			application.WriteMessage(w, "Sorry, this proposition has too many votes")
+			return
+		}
+
 		err = repo.SaveVote(r.Context(), newVote)
 		if err != nil {
 			application.WriteError(w, err)
@@ -202,6 +220,16 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 	msg := FormatQuestionAlt(poll, votes)
 	msg.ReplaceOriginal = true
 	application.WriteJSON(w, msg)
+}
+
+func PropositionVotes(votes []entities.Vote, propositionId int) []entities.Vote {
+	var results []entities.Vote
+	for _, vote := range votes {
+		if vote.SelectedProposition == propositionId {
+			results = append(results, vote)
+		}
+	}
+	return results
 }
 
 func UserVotes(votes []entities.Vote, userId string) []entities.Vote {

@@ -6,12 +6,13 @@ import (
 )
 
 type Poll struct {
-	Id           string
-	Title        string
-	Propositions []string
-	MaxVotes     int
-	CreatedAt    time.Time
-	Anonymous    bool
+	Id                     string
+	Title                  string
+	Propositions           []string
+	MaxVotes               int
+	CreatedAt              time.Time
+	Anonymous              bool
+	MaxVotesPerProposition int
 }
 
 type Vote struct {
