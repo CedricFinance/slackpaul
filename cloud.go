@@ -284,17 +284,21 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 
 	msg := slack.Msg{}
 
-	if poll.MaxVotes > 1 {
-		msg.Text = ":bust_in_silhouette: This poll is anonymous."
+	var explanations []string
+	if poll.Anonymous {
+		explanations = append(explanations, ":bust_in_silhouette: This poll is anonymous.")
 	}
 
 	if poll.MaxVotes > 1 {
-		textToAdd := fmt.Sprintf("This poll allows you to vote up to %d times.", poll.MaxVotes)
-		if msg.Text == "" {
-			msg.Text = textToAdd
-		} else {
-			msg.Text = fmt.Sprintf("%s %s", msg.Text, textToAdd)
-		}
+		explanations = append(explanations, fmt.Sprintf("You can vote up to %d times.", poll.MaxVotes))
+	}
+
+	if poll.MaxVotesPerProposition != 0 {
+		explanations = append(explanations, fmt.Sprintf("Propositions can have up to %d votes.", poll.MaxVotesPerProposition))
+	}
+
+	if len(explanations) > 0 {
+		msg.Text = strings.Join(explanations, " ")
 	}
 
 	buttonsAttachmentsCount := int(math.Ceil(float64(len(poll.Propositions)) / 5))
