@@ -111,17 +111,34 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 
 func ConfigurePoll(args []string) (entities.Poll, error) {
 	maxVotes := 1
-	if args[0] == "limit" && len(args) >= 5 {
-		var err error
-		maxVotes, err = strconv.Atoi(args[1])
-		if err != nil {
-			return entities.Poll{}, fmt.Errorf("%q is not a valid value for the max number of vote per participant", args[1])
+	anonymous := false
+
+	optionFound := true
+	for optionFound {
+		optionFound = false
+
+		if args[0] == "limit" && len(args) >= 5 {
+			var err error
+			maxVotes, err = strconv.Atoi(args[1])
+			if err != nil {
+				return entities.Poll{}, fmt.Errorf("%q is not a valid value for the max number of vote per participant", args[1])
+			}
+			args = args[2:]
+			optionFound = true
 		}
-		args = args[2:]
+
+		if args[0] == "anonymous" && len(args) >= 4 {
+			anonymous = true
+
+			args = args[1:]
+			optionFound = true
+		}
+
 	}
 
 	poll := entities.NewPoll(args[0], args[1:])
 	poll.MaxVotes = maxVotes
+	poll.Anonymous = anonymous
 
 	return poll, nil
 }
@@ -207,6 +224,16 @@ func (NumbersSymbolsSource) ForIndex(i int) string {
 	return fmt.Sprintf("%d", i+1)
 }
 
+type VoteFormatter func(vote entities.Vote) string
+
+func UserVoteFormatter(vote entities.Vote) string {
+	return fmt.Sprintf("<@%s>", vote.UserId)
+}
+
+func AnonymousVoteFormatter(vote entities.Vote) string {
+	return ":thumbsup:"
+}
+
 func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 	votes = votes[:]
 	sort.Sort(ByCreationDate(votes))
@@ -216,11 +243,21 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 	}
 
 	symbols := GetSymbolsSource(poll)
+	formatter := GetVoteFormatter(poll)
 
 	msg := slack.Msg{}
 
 	if poll.MaxVotes > 1 {
-		msg.Text = fmt.Sprintf("This poll allows you to vote up to %d times.", poll.MaxVotes)
+		msg.Text = ":bust_in_silhouette: This poll is anonymous."
+	}
+
+	if poll.MaxVotes > 1 {
+		textToAdd := fmt.Sprintf("This poll allows you to vote up to %d times.", poll.MaxVotes)
+		if msg.Text == "" {
+			msg.Text = textToAdd
+		} else {
+			msg.Text = fmt.Sprintf("%s %s", msg.Text, textToAdd)
+		}
 	}
 
 	buttonsAttachmentsCount := int(math.Ceil(float64(len(poll.Propositions)) / 5))
@@ -231,7 +268,7 @@ func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
 	for i, proposition := range poll.Propositions {
 		voters := make([]string, len(votesByProposition[i]))
 		for i, vote := range votesByProposition[i] {
-			voters[i] = fmt.Sprintf("<@%s>", vote.UserId)
+			voters[i] = formatter(vote)
 		}
 		propositionsFields[i] = slack.AttachmentField{
 			Value: fmt.Sprintf("*%s* %s    `%d`\n%s", symbols.ForIndex(i), proposition, len(votesByProposition[i]), strings.Join(voters, " "))}
@@ -270,6 +307,14 @@ func GetSymbolsSource(poll entities.Poll) SymbolsSource {
 	}
 
 	return NumbersSymbolsSource{}
+}
+
+func GetVoteFormatter(poll entities.Poll) VoteFormatter {
+	if poll.Anonymous {
+		return AnonymousVoteFormatter
+	}
+
+	return UserVoteFormatter
 }
 
 type ByCreationDate []entities.Vote

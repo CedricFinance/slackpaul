@@ -11,6 +11,7 @@ type Poll struct {
 	Propositions []string
 	MaxVotes     int
 	CreatedAt    time.Time
+	Anonymous    bool
 }
 
 type Vote struct {

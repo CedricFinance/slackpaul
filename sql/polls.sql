@@ -4,6 +4,7 @@ CREATE TABLE polls(
     title VARCHAR(2000) NOT NULL,
     propositions TEXT NOT NULL,
     max_votes INTEGER NOT NULL,
+    anonymous BOOL NOT NULL,
     created_at DATETIME(3) NOT NULL
 ) CHARACTER SET utf8mb4;
 

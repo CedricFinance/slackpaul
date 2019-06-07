@@ -22,11 +22,12 @@ type dbPoll struct {
 	Title        string
 	Propositions []byte
 	MaxVotes     int
+	Anonymous    bool
 	CreatedAt    time.Time
 }
 
 func (r *repository) FindPollByID(context context.Context, db *sql.DB, id string) (entities.Poll, error) {
-	rows, err := db.QueryContext(context, "SELECT id,title,propositions,max_votes,created_at FROM polls WHERE id=?", id)
+	rows, err := db.QueryContext(context, "SELECT id,title,propositions,max_votes,anonymous,created_at FROM polls WHERE id=?", id)
 	if err != nil {
 		return entities.Poll{}, err
 	}
@@ -37,7 +38,7 @@ func (r *repository) FindPollByID(context context.Context, db *sql.DB, id string
 	}
 
 	var p dbPoll
-	err = rows.Scan(&p.Id, &p.Title, &p.Propositions, &p.MaxVotes, &p.CreatedAt)
+	err = rows.Scan(&p.Id, &p.Title, &p.Propositions, &p.MaxVotes, &p.Anonymous, &p.CreatedAt)
 	if err != nil {
 		return entities.Poll{}, err
 	}
@@ -53,6 +54,7 @@ func (r *repository) FindPollByID(context context.Context, db *sql.DB, id string
 		Title:        p.Title,
 		Propositions: props,
 		MaxVotes:     p.MaxVotes,
+		Anonymous:    p.Anonymous,
 		CreatedAt:    p.CreatedAt,
 	}, nil
 }
@@ -65,11 +67,12 @@ func (r *repository) SavePoll(context context.Context, db *sql.DB, poll entities
 
 	_, err = db.ExecContext(
 		context,
-		"INSERT INTO polls(id,title,propositions,max_votes,created_at) VALUES(?,?,?,?,?)",
+		"INSERT INTO polls(id,title,propositions,max_votes,anonymous,created_at) VALUES(?,?,?,?,?,?)",
 		poll.Id,
 		poll.Title,
 		propositions,
 		poll.MaxVotes,
+		poll.Anonymous,
 		time.Now().UTC(),
 	)
 
