@@ -14,10 +14,12 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func ParseSlashCommand(r *http.Request) (slack.SlashCommand, error) {
@@ -51,6 +53,8 @@ var PropositionsEmojis = []string{
 var db *sql.DB
 
 func init() {
+	rand.Seed(time.Now().Unix())
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		fmt.Print(err)
@@ -156,22 +160,27 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	selectedProposition, err := strconv.Atoi(messageAction.Actions[0].Value)
-	if err != nil {
-		application.WriteError(w, err)
-		return
-	}
-
 	pollId := messageAction.CallbackID
 	userId := messageAction.User.ID
 
-	votes, err := repo.GetAllVotes(r.Context(), pollId)
+	poll, err := repo.FindPollByID(r.Context(), db, pollId)
 	if err != nil {
 		application.WriteError(w, err)
 		return
 	}
 
-	poll, err := repo.FindPollByID(r.Context(), db, pollId)
+	var selectedProposition int
+	if poll.Propositions[0] == "BlaBlaPoll" && rand.Intn(100) <= 75 {
+		selectedProposition = 0
+	} else {
+		selectedProposition, err = strconv.Atoi(messageAction.Actions[0].Value)
+		if err != nil {
+			application.WriteError(w, err)
+			return
+		}
+	}
+
+	votes, err := repo.GetAllVotes(r.Context(), pollId)
 	if err != nil {
 		application.WriteError(w, err)
 		return
