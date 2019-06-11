@@ -119,7 +119,7 @@ func ConfigurePoll(args []string) (entities.Poll, error) {
 	anonymous := false
 
 	optionFound := true
-	for optionFound {
+	for optionFound && len(args) > 0 {
 		optionFound = false
 
 		if args[0] == "limit" && len(args) >= 5 {
@@ -149,6 +149,10 @@ func ConfigurePoll(args []string) (entities.Poll, error) {
 			optionFound = true
 		}
 
+	}
+
+	if len(args) < 3 {
+		return entities.Poll{}, fmt.Errorf("a poll must have at leat a title and two propositions")
 	}
 
 	poll := entities.NewPoll(args[0], args[1:])
