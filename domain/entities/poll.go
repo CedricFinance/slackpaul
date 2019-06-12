@@ -21,6 +21,12 @@ type Vote struct {
 	PollId              string
 	SelectedProposition int
 	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+func (vote *Vote) ChangeSelectedProposition(selectedProposition int) {
+	vote.SelectedProposition = selectedProposition
+	vote.UpdatedAt = time.Now().UTC()
 }
 
 type Voter struct {
@@ -40,11 +46,13 @@ func NewPoll(title string, propositions []string) Poll {
 }
 
 func NewVote(userId string, pollId string, selectedProposition int) Vote {
+	now := time.Now().UTC()
 	return Vote{
 		Id:                  uuid.New().String(),
 		UserId:              userId,
 		PollId:              pollId,
 		SelectedProposition: selectedProposition,
-		CreatedAt:           time.Now().UTC(),
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 }

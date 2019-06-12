@@ -203,7 +203,8 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newVote := entities.NewVote(userId, pollId, selectedProposition)
-	if len(UserVotes(votes, userId)) < poll.MaxVotes {
+	userVotes := UserVotes(votes, userId)
+	if len(userVotes) < poll.MaxVotes {
 
 		if poll.MaxVotesPerProposition != 0 && len(PropositionVotes(votes, selectedProposition)) >= poll.MaxVotesPerProposition {
 			application.WriteMessage(w, "Sorry, this proposition has too many votes")
@@ -215,19 +216,30 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 			application.WriteError(w, err)
 			return
 		}
+
+		votes = append(votes, &newVote)
 	} else {
-		application.WriteMessage(w, fmt.Sprintf("Sorry, you already have voted %d times", poll.MaxVotes))
-		return
+		// allow to change the vote when we can vote only once (need to think how to do it for polls with multiple votes)
+		if poll.MaxVotes == 1 {
+			userVotes[0].ChangeSelectedProposition(selectedProposition)
+			if err != nil {
+				application.WriteError(w, err)
+				return
+			}
+		} else {
+			application.WriteMessage(w, fmt.Sprintf("Sorry, you already have voted %d times", poll.MaxVotes))
+			return
+		}
+
 	}
 
-	votes = append(votes, newVote)
 	msg := FormatQuestionAlt(poll, votes)
 	msg.ReplaceOriginal = true
 	application.WriteJSON(w, msg)
 }
 
-func PropositionVotes(votes []entities.Vote, propositionId int) []entities.Vote {
-	var results []entities.Vote
+func PropositionVotes(votes []*entities.Vote, propositionId int) []*entities.Vote {
+	var results []*entities.Vote
 	for _, vote := range votes {
 		if vote.SelectedProposition == propositionId {
 			results = append(results, vote)
@@ -236,8 +248,8 @@ func PropositionVotes(votes []entities.Vote, propositionId int) []entities.Vote 
 	return results
 }
 
-func UserVotes(votes []entities.Vote, userId string) []entities.Vote {
-	var userVotes []entities.Vote
+func UserVotes(votes []*entities.Vote, userId string) []*entities.Vote {
+	var userVotes []*entities.Vote
 	for _, vote := range votes {
 		if vote.UserId == userId {
 			userVotes = append(userVotes, vote)
@@ -265,20 +277,20 @@ func (NumbersSymbolsSource) ForIndex(i int) string {
 	return fmt.Sprintf("%d", i+1)
 }
 
-type VoteFormatter func(vote entities.Vote) string
+type VoteFormatter func(vote *entities.Vote) string
 
-func UserVoteFormatter(vote entities.Vote) string {
+func UserVoteFormatter(vote *entities.Vote) string {
 	return fmt.Sprintf("<@%s>", vote.UserId)
 }
 
-func AnonymousVoteFormatter(vote entities.Vote) string {
+func AnonymousVoteFormatter(vote *entities.Vote) string {
 	return ":thumbsup:"
 }
 
-func FormatQuestionAlt(poll entities.Poll, votes []entities.Vote) slack.Msg {
+func FormatQuestionAlt(poll entities.Poll, votes []*entities.Vote) slack.Msg {
 	votes = votes[:]
-	sort.Sort(ByCreationDate(votes))
-	votesByProposition := make([][]entities.Vote, len(poll.Propositions))
+	sort.Sort(ByUpdateDate(votes))
+	votesByProposition := make([][]*entities.Vote, len(poll.Propositions))
 	for _, vote := range votes {
 		votesByProposition[vote.SelectedProposition] = append(votesByProposition[vote.SelectedProposition], vote)
 	}
@@ -362,17 +374,17 @@ func GetVoteFormatter(poll entities.Poll) VoteFormatter {
 	return UserVoteFormatter
 }
 
-type ByCreationDate []entities.Vote
+type ByUpdateDate []*entities.Vote
 
-func (d ByCreationDate) Len() int {
+func (d ByUpdateDate) Len() int {
 	return len(d)
 }
 
-func (d ByCreationDate) Less(i, j int) bool {
-	return d[i].CreatedAt.Before(d[j].CreatedAt)
+func (d ByUpdateDate) Less(i, j int) bool {
+	return d[i].UpdatedAt.Before(d[j].CreatedAt)
 }
 
-func (d ByCreationDate) Swap(i, j int) {
+func (d ByUpdateDate) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
 }
 

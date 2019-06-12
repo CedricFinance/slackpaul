@@ -85,25 +85,38 @@ func (r *repository) SavePoll(context context.Context, db *sql.DB, poll entities
 func (r *repository) SaveVote(context context.Context, vote entities.Vote) error {
 	_, err := r.db.ExecContext(
 		context,
-		"INSERT INTO votes(id,poll_id,user_id,selected_proposition,created_at) VALUES(?,?,?,?,?)",
+		"INSERT INTO votes(id,poll_id,user_id,selected_proposition,created_at,updated_at) VALUES(?,?,?,?,?,?)",
 		vote.Id,
 		vote.PollId,
 		vote.UserId,
 		vote.SelectedProposition,
 		vote.CreatedAt,
+		vote.UpdatedAt,
 	)
 
 	return err
 }
 
-func (r *repository) GetAllVotes(context context.Context, pollId string) ([]entities.Vote, error) {
+func (r *repository) UpdateVote(context context.Context, vote entities.Vote) error {
+	_, err := r.db.ExecContext(
+		context,
+		"UPDATE votes SET selected_proposition = ?, updated_at = ? WHERE id=?",
+		vote.SelectedProposition,
+		vote.UpdatedAt,
+		vote.Id,
+	)
+
+	return err
+}
+
+func (r *repository) GetAllVotes(context context.Context, pollId string) ([]*entities.Vote, error) {
 	rows, err := r.db.QueryContext(context, "SELECT id,user_id,selected_proposition,created_at FROM votes WHERE poll_id=?", pollId)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var results []entities.Vote
+	var results []*entities.Vote
 
 	for rows.Next() {
 		var voteId string
@@ -117,7 +130,7 @@ func (r *repository) GetAllVotes(context context.Context, pollId string) ([]enti
 			return results, err
 		}
 
-		results = append(results, entities.Vote{Id: voteId, UserId: userId, SelectedProposition: selectedProposition, CreatedAt: createdAt})
+		results = append(results, &entities.Vote{Id: voteId, UserId: userId, SelectedProposition: selectedProposition, CreatedAt: createdAt})
 	}
 
 	return results, nil

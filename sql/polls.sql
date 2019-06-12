@@ -15,6 +15,7 @@ CREATE TABLE votes(
     user_id VARCHAR(10) NOT NULL,
     poll_id VARCHAR(36) NOT NULL,
     selected_propositions INTEGER NOT NULL,
-    created_at DATETIME(3) NOT NULL
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL
 ) CHARACTER SET utf8mb4;
 
