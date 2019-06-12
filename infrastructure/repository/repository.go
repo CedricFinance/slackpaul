@@ -110,7 +110,7 @@ func (r *repository) UpdateVote(context context.Context, vote entities.Vote) err
 }
 
 func (r *repository) GetAllVotes(context context.Context, pollId string) ([]*entities.Vote, error) {
-	rows, err := r.db.QueryContext(context, "SELECT id,user_id,selected_proposition,created_at FROM votes WHERE poll_id=?", pollId)
+	rows, err := r.db.QueryContext(context, "SELECT id,user_id,selected_proposition,created_at,updated_at FROM votes WHERE poll_id=?", pollId)
 	if err != nil {
 		return nil, err
 	}
@@ -123,14 +123,15 @@ func (r *repository) GetAllVotes(context context.Context, pollId string) ([]*ent
 		var userId string
 		var selectedProposition int
 		var createdAt time.Time
+		var updatedAt time.Time
 
-		err = rows.Scan(&voteId, &userId, &selectedProposition, &createdAt)
+		err = rows.Scan(&voteId, &userId, &selectedProposition, &createdAt, &updatedAt)
 
 		if err != nil {
 			return results, err
 		}
 
-		results = append(results, &entities.Vote{Id: voteId, UserId: userId, SelectedProposition: selectedProposition, CreatedAt: createdAt})
+		results = append(results, &entities.Vote{Id: voteId, UserId: userId, SelectedProposition: selectedProposition, CreatedAt: createdAt, UpdatedAt: updatedAt})
 	}
 
 	return results, nil
