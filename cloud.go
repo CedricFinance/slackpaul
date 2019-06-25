@@ -107,7 +107,6 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//msg := FormatQuestion(question, propositions)
 	msg := FormatQuestionAlt(poll, nil)
 
 	application.WriteJSON(w, msg)
@@ -386,39 +385,6 @@ func (d ByUpdateDate) Less(i, j int) bool {
 
 func (d ByUpdateDate) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
-}
-
-func FormatQuestion(question string, propositions []string) slack.Message {
-	questionText := slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("*%s*", question), false, false)
-	questionSection := slack.NewSectionBlock(questionText, nil, nil)
-	msg := slack.NewBlockMessage(
-		questionSection,
-	)
-	// var text = make([]string, len(propositions))
-	var buttons = make([]slack.BlockElement, len(propositions))
-	for i, proposition := range propositions {
-		propositionsText := slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("%s %s", PropositionsEmojis[i], proposition), false, false)
-		propositionsSection := slack.NewSectionBlock(propositionsText, nil, nil)
-		//       text[i] = fmt.Sprintf("%s %s", PropositionsEmojis[i], proposition)
-		msg = slack.AddBlockMessage(msg, propositionsSection)
-
-		buttonText := slack.NewTextBlockObject("plain_text", PropositionsEmojis[i], true, false)
-		buttons[i] = slack.NewButtonBlockElement(fmt.Sprintf("select-proposition-%d", i), fmt.Sprintf("%d", i), buttonText)
-
-	}
-	/*
-	   propositionsText := slack.NewTextBlockObject("mrkdwn", strings.Join(text, "\n"), false, false)
-	   propositionsSection := slack.NewSectionBlock(propositionsText, nil, nil)
-	*/
-	var buttonsSections = make([]slack.Block, int(math.Ceil(float64(len(buttons))/5)))
-	for i := range buttonsSections {
-		lowerBound := 5 * i
-		upperBound := int(math.Min(float64(len(buttons)), float64(lowerBound)+5))
-		buttonsSection := slack.NewActionBlock(fmt.Sprintf("select-propositions-%d", i), buttons[lowerBound:upperBound]...)
-
-		msg = slack.AddBlockMessage(msg, buttonsSection)
-	}
-	return msg
 }
 
 func Sanitize(str string) string {
