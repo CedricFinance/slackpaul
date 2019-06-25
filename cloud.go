@@ -22,6 +22,8 @@ import (
 	"time"
 )
 
+const helpMessage = "To start a poll, type this: `/paul Question Choice1 Choice2 ...`\nA poll must have at least a title and two choices.\n:warning: Put you question and each choice between \"\" if they contain spaces.\nBefore the question, you can add options to configure the poll.\nThe available options are:\n- `limit X` to limit the number of votes per user. The default value is 1.\n- `max X` to limit the number of votes per choice. The default value is 0 (unlimited).\n- `anonymous` to make the poll anonymous"
+
 func ParseSlashCommand(r *http.Request) (slack.SlashCommand, error) {
 	return slack.SlashCommandParse(r)
 }
@@ -95,9 +97,14 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(args) == 0 {
+		application.WriteMessage(w, helpMessage)
+		return
+	}
+
 	poll, err := ConfigurePoll(args)
 	if err != nil {
-		application.WriteMessage(w, fmt.Sprintf("Sorry, %s", err.Error()))
+		application.WriteMessage(w, fmt.Sprintf("Sorry, %s\n%s", err.Error(), helpMessage))
 		return
 	}
 
