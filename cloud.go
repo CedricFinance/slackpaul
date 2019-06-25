@@ -136,7 +136,7 @@ func ConfigurePoll(args []string) (entities.Poll, error) {
 			var err error
 			maxVotesPerProposition, err = strconv.Atoi(args[1])
 			if err != nil {
-				return entities.Poll{}, fmt.Errorf("%q is not a valid value for the max number of vote per proposition", args[1])
+				return entities.Poll{}, fmt.Errorf("%q is not a valid value for the max number of vote per choice", args[1])
 			}
 			args = args[2:]
 			optionFound = true
@@ -152,7 +152,7 @@ func ConfigurePoll(args []string) (entities.Poll, error) {
 	}
 
 	if len(args) < 3 {
-		return entities.Poll{}, fmt.Errorf("a poll must have at leat a title and two propositions")
+		return entities.Poll{}, fmt.Errorf("a poll must have at least a title and two choices")
 	}
 
 	poll := entities.NewPoll(args[0], args[1:])
@@ -207,7 +207,7 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 	if len(userVotes) < poll.MaxVotes {
 
 		if poll.MaxVotesPerProposition != 0 && len(PropositionVotes(votes, selectedProposition)) >= poll.MaxVotesPerProposition {
-			application.WriteMessage(w, "Sorry, this proposition has too many votes")
+			application.WriteMessage(w, "Sorry, this choice has too many votes")
 			return
 		}
 
@@ -310,7 +310,7 @@ func FormatQuestionAlt(poll entities.Poll, votes []*entities.Vote) slack.Msg {
 	}
 
 	if poll.MaxVotesPerProposition != 0 {
-		explanations = append(explanations, fmt.Sprintf("Propositions can have up to %d votes.", poll.MaxVotesPerProposition))
+		explanations = append(explanations, fmt.Sprintf("Choices can have up to %d votes.", poll.MaxVotesPerProposition))
 	}
 
 	if len(explanations) > 0 {
