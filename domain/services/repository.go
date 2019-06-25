@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/CedricFinance/blablapoll/domain/entities"
+	"github.com/CedricFinance/slackpaul/domain/entities"
 )
 
 type Repository interface {

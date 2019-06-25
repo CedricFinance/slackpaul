@@ -1,13 +1,13 @@
-package blablapoll
+package slackpaul
 
 import (
 	"database/sql"
 	"fmt"
-	"github.com/CedricFinance/blablapoll/application"
-	"github.com/CedricFinance/blablapoll/config"
-	"github.com/CedricFinance/blablapoll/database"
-	"github.com/CedricFinance/blablapoll/domain/entities"
-	"github.com/CedricFinance/blablapoll/infrastructure/repository"
+	"github.com/CedricFinance/slackpaul/application"
+	"github.com/CedricFinance/slackpaul/config"
+	"github.com/CedricFinance/slackpaul/database"
+	"github.com/CedricFinance/slackpaul/domain/entities"
+	"github.com/CedricFinance/slackpaul/infrastructure/repository"
 	"github.com/mattn/go-shellwords"
 	"github.com/nlopes/slack"
 	"github.com/nlopes/slack/slackevents"
@@ -334,7 +334,7 @@ func FormatQuestionAlt(poll entities.Poll, votes []*entities.Vote) slack.Msg {
 			voters[i] = formatter(vote)
 		}
 		propositionsFields[i] = slack.AttachmentField{
-			Value: fmt.Sprintf("*%s* %s    `%d`\n%s", symbols.ForIndex(i), proposition, len(votesByProposition[i]), strings.Join(voters, " "))}
+			Value: fmt.Sprintf("*%s* %s    `%d`\n%s", symbols.ForIndex(i), mdEscape(proposition), len(votesByProposition[i]), strings.Join(voters, " "))}
 	}
 
 	msg.Attachments = append(msg.Attachments, slack.Attachment{
@@ -362,6 +362,10 @@ func FormatQuestionAlt(poll entities.Poll, votes []*entities.Vote) slack.Msg {
 	msg.ResponseType = "in_channel"
 
 	return msg
+}
+
+func mdEscape(s string) string {
+	return ""
 }
 
 func GetSymbolsSource(poll entities.Poll) SymbolsSource {

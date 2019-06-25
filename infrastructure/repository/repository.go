@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"github.com/CedricFinance/blablapoll/domain/entities"
-	"github.com/CedricFinance/blablapoll/domain/services"
+	"github.com/CedricFinance/slackpaul/domain/entities"
+	"github.com/CedricFinance/slackpaul/domain/services"
 	"time"
 )
 

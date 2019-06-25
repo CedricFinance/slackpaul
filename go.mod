@@ -1,4 +1,4 @@
-module github.com/CedricFinance/blablapoll
+module github.com/CedricFinance/slackpaul
 
 go 1.11
 
