@@ -228,6 +228,7 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 		// allow to change the vote when we can vote only once (need to think how to do it for polls with multiple votes)
 		if poll.MaxVotes == 1 {
 			userVotes[0].ChangeSelectedProposition(selectedProposition)
+			err := repo.UpdateVote(r.Context(), *userVotes[0])
 			if err != nil {
 				application.WriteError(w, err)
 				return
