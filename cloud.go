@@ -22,7 +22,9 @@ import (
 	"time"
 )
 
-const helpMessage = "To start a poll, type this: `/paul Question Choice1 Choice2 ...`\nA poll must have at least a title and two choices.\n:warning: Put you question and each choice between \"\" if they contain spaces.\nBefore the question, you can add options to configure the poll.\nThe available options are:\n- `limit X` to limit the number of votes per user. The default value is 1.\n- `max X` to limit the number of votes per choice. The default value is 0 (unlimited).\n- `anonymous` to make the poll anonymous"
+const (
+	helpMessage string = "To start a poll, type this: `/paul [options] Question Choice1 Choice2 ...`\nA poll must have at least a title and two choices.\n:warning: Put you question and each choice between \"\" if they contain spaces.\nBefore the question, you can add options to configure the poll.\nThe available options are:\n- `limit X` to limit the number of votes per user. The default value is 1. When X < 1, it's a synonym of `limit N+X` (where N is the number of choices). \n- `max X` to limit the number of votes per choice. The default value is 0 (unlimited).\n- `anonymous` to make the poll anonymous\n\nExamples:\n- `/paul Q A B C D E`: 1 vote per user, unlimited votes per choice  \n- `/paul limit 2 Q A B C D E`: 2 votes per user, unlimited votes per choice\n- `/paul limit 0 Q A B C D E`: 5 votes per user, unlimited votes per choice\n- `/paul limit -2 Q A B C D E`: 3 votes per user, unlimited votes per choice\n- `/paul max 3 Q A B C D E`: 1 vote per user, 3 votes max per choice"
+)
 
 func ParseSlashCommand(r *http.Request) (slack.SlashCommand, error) {
 	return slack.SlashCommandParse(r)
@@ -161,7 +163,14 @@ func ConfigurePoll(args []string) (entities.Poll, error) {
 		return entities.Poll{}, fmt.Errorf("a poll must have at least a title and two choices")
 	}
 
-	poll := entities.NewPoll(args[0], args[1:])
+	title := args[0]
+	propositions := args[1:]
+
+	if maxVotes < 1 {
+		maxVotes = len(propositions) + maxVotes
+	}
+
+	poll := entities.NewPoll(title, propositions)
 	poll.MaxVotes = maxVotes
 	poll.Anonymous = anonymous
 	poll.MaxVotesPerProposition = maxVotesPerProposition
