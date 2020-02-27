@@ -104,7 +104,7 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	poll, err := ConfigurePoll(args)
+	poll, err := ConfigurePoll(args, slashCommand.ChannelID, slashCommand.UserID)
 	if err != nil {
 		application.WriteMessage(w, fmt.Sprintf("Sorry, %s\n%s", err.Error(), helpMessage))
 		return
@@ -121,7 +121,7 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 	application.WriteJSON(w, msg)
 }
 
-func ConfigurePoll(args []string) (entities.Poll, error) {
+func ConfigurePoll(args []string, channelId string, ownerId string) (entities.Poll, error) {
 	maxVotes := 1
 	maxVotesPerProposition := 0
 	anonymous := false
@@ -170,7 +170,7 @@ func ConfigurePoll(args []string) (entities.Poll, error) {
 		maxVotes = len(propositions) + maxVotes
 	}
 
-	poll := entities.NewPoll(title, propositions)
+	poll := entities.NewPoll(title, propositions, channelId, ownerId)
 	poll.MaxVotes = maxVotes
 	poll.Anonymous = anonymous
 	poll.MaxVotesPerProposition = maxVotesPerProposition

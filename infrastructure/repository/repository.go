@@ -69,7 +69,7 @@ func (r *repository) SavePoll(context context.Context, db *sql.DB, poll entities
 
 	_, err = db.ExecContext(
 		context,
-		"INSERT INTO polls(id,title,propositions,max_votes,max_by_proposition,anonymous,created_at) VALUES(?,?,?,?,?,?,?)",
+		"INSERT INTO polls(id,title,propositions,max_votes,max_by_proposition,anonymous,created_at,channel_id,owner_id) VALUES(?,?,?,?,?,?,?,?,?)",
 		poll.Id,
 		poll.Title,
 		propositions,
@@ -77,6 +77,8 @@ func (r *repository) SavePoll(context context.Context, db *sql.DB, poll entities
 		poll.MaxVotesPerProposition,
 		poll.Anonymous,
 		time.Now().UTC(),
+		poll.ChannelId,
+		poll.OwnerId,
 	)
 
 	return err

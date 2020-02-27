@@ -6,7 +6,9 @@ CREATE TABLE polls(
     max_votes INTEGER NOT NULL,
     anonymous BOOL NOT NULL,
     max_by_proposition INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME(3) NOT NULL
+    created_at DATETIME(3) NOT NULL,
+    channel_id VARCHAR(10),
+    owner_id VARCHAR(10)
 ) CHARACTER SET utf8mb4;
 
 DROP TABLE votes;

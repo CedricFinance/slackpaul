@@ -13,6 +13,8 @@ type Poll struct {
 	CreatedAt              time.Time
 	Anonymous              bool
 	MaxVotesPerProposition int
+	ChannelId              string
+	OwnerId                string
 }
 
 type Vote struct {
@@ -36,12 +38,14 @@ type Voter struct {
 	CreatedAt time.Time
 }
 
-func NewPoll(title string, propositions []string) Poll {
+func NewPoll(title string, propositions []string, channelId string, ownerId string) Poll {
 	return Poll{
 		Id:           uuid.New().String(),
 		Title:        title,
 		Propositions: propositions,
 		MaxVotes:     1,
+		OwnerId:      ownerId,
+		ChannelId:    channelId,
 	}
 }
 
