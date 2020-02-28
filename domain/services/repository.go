@@ -2,14 +2,13 @@ package services
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"github.com/CedricFinance/slackpaul/domain/entities"
 )
 
 type Repository interface {
-	FindPollByID(context context.Context, db *sql.DB, id string) (entities.Poll, error)
-	SavePoll(context context.Context, db *sql.DB, poll entities.Poll) error
+	FindPollByID(context context.Context, id string) (entities.Poll, error)
+	SavePoll(context context.Context, poll entities.Poll) error
 
 	GetAllVotes(context context.Context, pollId string) ([]*entities.Vote, error)
 	SaveVote(context context.Context, vote entities.Vote) error

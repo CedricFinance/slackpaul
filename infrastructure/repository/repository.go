@@ -27,8 +27,8 @@ type dbPoll struct {
 	CreatedAt              time.Time
 }
 
-func (r *repository) FindPollByID(context context.Context, db *sql.DB, id string) (entities.Poll, error) {
-	rows, err := db.QueryContext(context, "SELECT id,title,propositions,max_votes,max_by_proposition,anonymous,created_at FROM polls WHERE id=?", id)
+func (r *repository) FindPollByID(context context.Context, id string) (entities.Poll, error) {
+	rows, err := r.db.QueryContext(context, "SELECT id,title,propositions,max_votes,max_by_proposition,anonymous,created_at FROM polls WHERE id=?", id)
 	if err != nil {
 		return entities.Poll{}, err
 	}
@@ -61,13 +61,13 @@ func (r *repository) FindPollByID(context context.Context, db *sql.DB, id string
 	}, nil
 }
 
-func (r *repository) SavePoll(context context.Context, db *sql.DB, poll entities.Poll) error {
+func (r *repository) SavePoll(context context.Context, poll entities.Poll) error {
 	propositions, err := json.Marshal(poll.Propositions)
 	if err != nil {
 		return err
 	}
 
-	_, err = db.ExecContext(
+	_, err = r.db.ExecContext(
 		context,
 		"INSERT INTO polls(id,title,propositions,max_votes,max_by_proposition,anonymous,created_at,channel_id,owner_id) VALUES(?,?,?,?,?,?,?,?,?)",
 		poll.Id,

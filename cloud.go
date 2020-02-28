@@ -110,7 +110,7 @@ func OnSlashCommandTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = repo.SavePoll(r.Context(), db, poll)
+	err = repo.SavePoll(r.Context(), poll)
 	if err != nil {
 		application.WriteError(w, err)
 		return
@@ -194,7 +194,7 @@ func OnActionTrigger(w http.ResponseWriter, r *http.Request) {
 	pollId := messageAction.CallbackID
 	userId := messageAction.User.ID
 
-	poll, err := repo.FindPollByID(r.Context(), db, pollId)
+	poll, err := repo.FindPollByID(r.Context(), pollId)
 	if err != nil {
 		application.WriteError(w, err)
 		return
