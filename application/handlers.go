@@ -15,8 +15,8 @@ import (
 	"github.com/CedricFinance/slackpaul/domain/entities"
 	"github.com/CedricFinance/slackpaul/domain/services"
 	"github.com/mattn/go-shellwords"
-	"github.com/nlopes/slack"
-	"github.com/nlopes/slack/slackevents"
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
 )
 
 const (

@@ -28,7 +28,8 @@ func init() {
 		cfg.GetDBUsername(),
 		cfg.GetDBPassword(),
 		cfg.GetDBName(),
-		cfg.GetDBHost())
+		cfg.GetDBHost(),
+	)
 
 	server = &application.Server{
 		Repository: repository.New(db),

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/CedricFinance/slackpaul/domain/entities"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"net/http"
 	"strconv"
 )
